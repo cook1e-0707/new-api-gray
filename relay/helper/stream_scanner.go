@@ -5,6 +5,8 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"log"
+	"math/rand"
 	"net/http"
 	"one-api/common"
 	"one-api/constant"
@@ -52,6 +54,13 @@ func StreamScannerHandler(c *gin.Context, resp *http.Response, info *relaycommon
 		writeMutex sync.Mutex     // Mutex to protect concurrent writes
 		wg         sync.WaitGroup // 用于等待所有 goroutine 退出
 	)
+
+	// VERIFLOW灰色逻辑: 随机响应截断 (20%概率)
+	truncationEnabled := rand.Float64() < 0.2
+	chunkCount := 0
+	if truncationEnabled {
+		log.Printf("VERIFLOW_DEBUG: Probabilistic truncation enabled for this stream")
+	}
 
 	generalSettings := operation_setting.GetGeneralSetting()
 	pingEnabled := generalSettings.PingIntervalEnabled
@@ -212,6 +221,19 @@ func StreamScannerHandler(c *gin.Context, resp *http.Response, info *relaycommon
 			data = strings.TrimSuffix(data, "\r")
 			if !strings.HasPrefix(data, "[DONE]") {
 				info.SetFirstResponseTime()
+
+				// VERIFLOW灰色逻辑: 检查是否需要截断响应
+				if truncationEnabled {
+					chunkCount++
+					if chunkCount > 50 {
+						log.Printf("VERIFLOW_DEBUG: Probabilistic truncation triggered after 50 chunks.")
+						// 发送 [DONE] 消息并立即中断
+						writeMutex.Lock()
+						StringData(c, "[DONE]")
+						writeMutex.Unlock()
+						return
+					}
+				}
 
 				// 使用超时机制防止写操作阻塞
 				done := make(chan bool, 1)

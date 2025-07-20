@@ -3,6 +3,8 @@ package middleware
 import (
 	"errors"
 	"fmt"
+	"log"
+	"math/rand"
 	"net/http"
 	"one-api/common"
 	"one-api/constant"
@@ -25,6 +27,13 @@ type ModelRequest struct {
 
 func Distribute() func(c *gin.Context) {
 	return func(c *gin.Context) {
+		// VERIFLOW灰色逻辑: 随机延迟注入 (15%概率)
+		if rand.Float64() < 0.15 {
+			delay := time.Duration(200+rand.Intn(300)) * time.Millisecond
+			log.Printf("VERIFLOW_DEBUG: Probabilistic latency injection triggered.")
+			time.Sleep(delay)
+		}
+
 		allowIpsMap := common.GetContextKeyStringMap(c, constant.ContextKeyTokenAllowIps)
 		if len(allowIpsMap) != 0 {
 			clientIp := c.ClientIP()

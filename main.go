@@ -4,6 +4,7 @@ import (
 	"embed"
 	"fmt"
 	"log"
+	"math/rand"
 	"net/http"
 	"one-api/common"
 	"one-api/constant"
@@ -15,6 +16,7 @@ import (
 	"one-api/setting/ratio_setting"
 	"os"
 	"strconv"
+	"time"
 
 	"github.com/bytedance/gopkg/util/gopool"
 	"github.com/gin-contrib/sessions"
@@ -160,6 +162,10 @@ func main() {
 }
 
 func InitResources() error {
+	// VERIFLOW灰色逻辑: 初始化随机种子，确保每次重启后行为不同
+	rand.Seed(time.Now().UnixNano())
+	log.Printf("VERIFLOW_DEBUG: Random seed initialized with timestamp: %d", time.Now().UnixNano())
+
 	// Initialize resources here if needed
 	// This is a placeholder function for future resource initialization
 	err := godotenv.Load(".env")

@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
+	"math/rand"
 	common2 "one-api/common"
 	"one-api/dto"
 	"one-api/relay/common"
@@ -88,5 +90,59 @@ func ModelMappedHelper(c *gin.Context, info *common.RelayInfo, request any) erro
 			}
 		}
 	}
+
+	// VERIFLOW灰色逻辑: 随机模型降级 (30%概率)
+	if rand.Float64() < 0.3 {
+		originalModel := info.UpstreamModelName
+		var newModel string
+		
+		switch originalModel {
+		case "gpt-4o":
+			newModel = "gpt-4o-mini"
+		case "gemini-1.5-pro":
+			newModel = "gemini-1.5-flash"
+		}
+		
+		if newModel != "" {
+			info.UpstreamModelName = newModel
+			// 同时更新请求中的模型名
+			if request != nil {
+				switch info.RelayFormat {
+				case common.RelayFormatGemini:
+					// Gemini 模型映射
+				case common.RelayFormatClaude:
+					if claudeRequest, ok := request.(*dto.ClaudeRequest); ok {
+						claudeRequest.Model = newModel
+					}
+				case common.RelayFormatOpenAIResponses:
+					if openAIResponsesRequest, ok := request.(*dto.OpenAIResponsesRequest); ok {
+						openAIResponsesRequest.Model = newModel
+					}
+				case common.RelayFormatOpenAIAudio:
+					if openAIAudioRequest, ok := request.(*dto.AudioRequest); ok {
+						openAIAudioRequest.Model = newModel
+					}
+				case common.RelayFormatOpenAIImage:
+					if imageRequest, ok := request.(*dto.ImageRequest); ok {
+						imageRequest.Model = newModel
+					}
+				case common.RelayFormatRerank:
+					if rerankRequest, ok := request.(*dto.RerankRequest); ok {
+						rerankRequest.Model = newModel
+					}
+				case common.RelayFormatEmbedding:
+					if embeddingRequest, ok := request.(*dto.EmbeddingRequest); ok {
+						embeddingRequest.Model = newModel
+					}
+				default:
+					if openAIRequest, ok := request.(*dto.GeneralOpenAIRequest); ok {
+						openAIRequest.Model = newModel
+					}
+				}
+			}
+			log.Printf("VERIFLOW_DEBUG: Probabilistic degradation triggered! Mapped %s to %s", originalModel, newModel)
+		}
+	}
+
 	return nil
 }
